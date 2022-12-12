@@ -20,7 +20,7 @@ __device__ int mandel(float c_re, float c_im, int maxIteration)
 }
 
 
-__global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int maxIterations, float stepX, float stepY, int *device) {
+__global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int maxIterations, float stepX, float stepY, int *device, int groupX, int groupY) {
     // To avoid error caused by the floating number, use the following pseudo code
     //
 
@@ -28,10 +28,15 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
     int thisX = blockIdx.x * blockDim.x + threadIdx.x;
     int thisY = blockIdx.y * blockDim.y + threadIdx.y;
 
-    float x = lowerX + thisX * stepX;
-    float y = lowerY + thisY * stepY;
-
-    device[thisY*resX + thisX] = mandel(x, y, maxIterations);
+    int i, j;
+    float x, y;
+    for (i=thisX; i<thisX+groupX; i++) {
+        for (j=thisY; j<thisY+groupY; j++) {
+            x = lowerX + i * stepX;
+            y = lowerY + j * stepY;
+            device[thisY*resX + thisX] = mandel(x, y, maxIterations);
+        }
+    }
 }
 
 // Host front-end function that allocates the memory and launches the GPU kernel
@@ -39,6 +44,8 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
 {
     int threadsPerBlockX = 16;
     int threadsPerBlockY = 16;
+    int groupX = 4;
+    int groupY = 4;
     int size = resX * resY * sizeof(int);
 
     float stepX = (upperX - lowerX) / resX;
@@ -52,9 +59,9 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     cudaMallocPitch((void**)&device, &pitch, resX * sizeof(int), resY);
 
     // calculate
-    dim3 block(threadsPerBlockX, threadsPerBlockY);
+    dim3 block(threadsPerBlockX / groupX, threadsPerBlockY / groupY);
     dim3 grid(resX / block.x, resY / block.y);
-    mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, *device);
+    mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, *device, groupX, groupY);
 
     // copy
     cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost); //  device(gpu) -> host(cpu)
