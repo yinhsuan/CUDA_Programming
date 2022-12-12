@@ -47,8 +47,9 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     // allocate memory space
     int* host;
     int* device;
-    host = (int*)malloc(size);
-    cudaMalloc(&device, size);
+    size_t pitch;
+    cudaHostAlloc(&host, size, cudaHostAllocMapped);
+    cudaMallocPitch(&device, &pitch, resX * sizeof(int), resY);
 
     // calculate
     dim3 block(threadsPerBlockX, threadsPerBlockY);
