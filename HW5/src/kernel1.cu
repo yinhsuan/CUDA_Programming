@@ -37,8 +37,8 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
 // Host front-end function that allocates the memory and launches the GPU kernel
 void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, int resX, int resY, int maxIterations)
 {
-    int threadsPerBlockX = 16;
-    int threadsPerBlockY = 16;
+    int threadsPerBlock = 16;
+    // int threadsPerBlock = 16;
     int size = resX * resY * sizeof(int);
 
     float stepX = (upperX - lowerX) / resX;
@@ -51,9 +51,9 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     cudaMalloc((void**)&device, size);
 
     // calculate
-    dim3 block(threadsPerBlockX, threadsPerBlockY);
-    dim3 grid(resX / block.x, resY / block.y);
-    mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, *device)
+    dim3 block(threadsPerBlock, threadsPerBlock);
+    dim3 grid((int) ceil(resX / threadsPerBlock), (int) ceil(resY / threadsPerBlock));
+    mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, device);
 
     // copy
     cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost); //  device(gpu) -> host(cpu)

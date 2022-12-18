@@ -25,16 +25,13 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
     //
 
     // get the curreent thread location
-    int thisX = blockIdx.x * blockDim.x + threadIdx.x;
-    int thisY = blockIdx.y * blockDim.y + threadIdx.y;
-    if (thisX >= resX || thisY >= resY) return;
+    int thisX = (blockIdx.x * blockDim.x + threadIdx.x) * groupX;
+    int thisY = (blockIdx.y * blockDim.y + threadIdx.y) * groupY;
 
     int i, j;
     float x, y;
     for (j=thisY; j<thisY+groupY; j++) {
-        if (j >= resY) return;
         for (i=thisX; i<thisX+groupX; i++) {
-            if (i >= resX) continue;
             x = lowerX + i * stepX;
             y = lowerY + j * stepY;
             device[j*resX + i] = mandel(x, y, maxIterations);
@@ -46,8 +43,8 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
 void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, int resX, int resY, int maxIterations)
 {
     int threadsPerBlock = 16;
-    int groupX = 4;
-    int groupY = 4;
+    int groupX = 2;
+    int groupY = 2;
     int size = resX * resY * sizeof(int);
 
     float stepX = (upperX - lowerX) / resX;
@@ -57,19 +54,19 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     int* host;
     int* device;
     size_t pitch;
-    cudaHostAlloc(&host, size, cudaHostAllocMapped);
+    cudaHostAlloc((void**)&host, size, cudaHostAllocMapped);
     cudaMallocPitch((void**)&device, &pitch, resX * sizeof(int), resY);
 
     // calculate
-    dim3 block(int(threadsPerBlock / groupX), int(threadsPerBlock / groupY));
-    dim3 grid(int(resX / block.x), int(resY / block.y));
-    mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, *device, groupX, groupY);
+    dim3 block((int) ceil(threadsPerBlock / groupX), (int) ceil(threadsPerBlock / groupY));
+    dim3 grid((int) ceil(resX / threadsPerBlock), (int) ceil(resY / threadsPerBlock));
+    mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, device, groupX, groupY);
 
     // copy
     cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost); //  device(gpu) -> host(cpu)
     memcpy(img, host, size); // host -> img
 
     // release the memory
-    free(host);
+    cudaFreeHost(host);
     cudaFree(device);
 }
