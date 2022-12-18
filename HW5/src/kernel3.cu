@@ -27,14 +27,17 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
     // get the curreent thread location
     int thisX = blockIdx.x * blockDim.x + threadIdx.x;
     int thisY = blockIdx.y * blockDim.y + threadIdx.y;
+    if (thisX >= resX || thisY >= resY) return;
 
     int i, j;
     float x, y;
-    for (i=thisX; i<thisX+groupX; i++) {
-        for (j=thisY; j<thisY+groupY; j++) {
+    for (j=thisY; j<thisY+groupY; j++) {
+        if (j >= resY) return;
+        for (i=thisX; i<thisX+groupX; i++) {
+            if (i >= resX) continue;
             x = lowerX + i * stepX;
             y = lowerY + j * stepY;
-            device[thisY*resX + thisX] = mandel(x, y, maxIterations);
+            device[j*resX + i] = mandel(x, y, maxIterations);
         }
     }
 }
@@ -42,8 +45,7 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
 // Host front-end function that allocates the memory and launches the GPU kernel
 void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, int resX, int resY, int maxIterations)
 {
-    int threadsPerBlockX = 16;
-    int threadsPerBlockY = 16;
+    int threadsPerBlock = 16;
     int groupX = 4;
     int groupY = 4;
     int size = resX * resY * sizeof(int);
@@ -59,8 +61,8 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     cudaMallocPitch((void**)&device, &pitch, resX * sizeof(int), resY);
 
     // calculate
-    dim3 block(threadsPerBlockX / groupX, threadsPerBlockY / groupY);
-    dim3 grid(resX / block.x, resY / block.y);
+    dim3 block(int(threadsPerBlock / groupX), int(threadsPerBlock / groupY));
+    dim3 grid(int(resX / block.x), int(resY / block.y));
     mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, *device, groupX, groupY);
 
     // copy

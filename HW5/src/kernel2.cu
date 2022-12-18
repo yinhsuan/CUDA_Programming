@@ -49,11 +49,12 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     int* device;
     size_t pitch;
     cudaHostAlloc(&host, size, cudaHostAllocMapped);
+    // cudaHostAlloc(&host, size, cudaHostAllocPortable);
     cudaMallocPitch((void**)&device, &pitch, resX * sizeof(int), resY);
 
     // calculate
     dim3 block(threadsPerBlockX, threadsPerBlockY);
-    dim3 grid(resX / block.x, resY / block.y);
+    dim3 grid(int(resX / block.x), int(resY / block.y));
     mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, *device);
 
     // copy

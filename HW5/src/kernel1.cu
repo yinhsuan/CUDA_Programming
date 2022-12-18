@@ -48,7 +48,7 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     int* host;
     int* device;
     host = (int*)malloc(size);
-    cudaMalloc(&device, size);
+    cudaMalloc((void**)&device, size);
 
     // calculate
     dim3 block(threadsPerBlockX, threadsPerBlockY);
