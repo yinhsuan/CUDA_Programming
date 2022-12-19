@@ -44,9 +44,7 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     float stepY = (upperY - lowerY) / resY;
 
     // allocate memory space
-    int* host;
     int* device;
-    host = (int*)malloc(size);
     cudaMalloc((void**)&device, size);
 
     // calculate
@@ -55,10 +53,8 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, device);
 
     // copy
-    cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost); //  device(gpu) -> host(cpu)
-    memcpy(img, host, size); // host -> img
+    cudaMemcpy(img, device, size, cudaMemcpyDeviceToHost); //  device(gpu) -> host(cpu)
 
     // release the memory
-    free(host);
     cudaFree(device);
 }

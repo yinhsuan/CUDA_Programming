@@ -27,11 +27,14 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
     // get the curreent thread location
     int thisX = (blockIdx.x * blockDim.x + threadIdx.x) * groupX;
     int thisY = (blockIdx.y * blockDim.y + threadIdx.y) * groupY;
+    // if (thisX >= resX || thisY >= resY) return;
 
     int i, j;
     float x, y;
     for (j=thisY; j<thisY+groupY; j++) {
+        // if (j >= resY) return;
         for (i=thisX; i<thisX+groupX; i++) {
+            // if (i >= resX) continue;
             x = lowerX + i * stepX;
             y = lowerY + j * stepY;
             device[j*resX + i] = mandel(x, y, maxIterations);
@@ -43,8 +46,8 @@ __global__ void mandelKernel(float lowerX, float lowerY, int resX, int resY, int
 void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, int resX, int resY, int maxIterations)
 {
     int threadsPerBlock = 16;
-    int groupX = 2;
-    int groupY = 2;
+    int groupX = 4;
+    int groupY = 4;
     int size = resX * resY * sizeof(int);
 
     float stepX = (upperX - lowerX) / resX;
@@ -61,6 +64,8 @@ void hostFE(float upperX, float upperY, float lowerX, float lowerY, int* img, in
     dim3 block((int) ceil(threadsPerBlock / groupX), (int) ceil(threadsPerBlock / groupY));
     dim3 grid((int) ceil(resX / threadsPerBlock), (int) ceil(resY / threadsPerBlock));
     mandelKernel<<<grid, block>>>(lowerX, lowerY, resX, resY, maxIterations, stepX, stepY, device, groupX, groupY);
+
+    // cudaDeviceSynchronize();
 
     // copy
     cudaMemcpy(host, device, size, cudaMemcpyDeviceToHost); //  device(gpu) -> host(cpu)
